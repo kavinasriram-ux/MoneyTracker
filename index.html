@@ -18,6 +18,7 @@
       --text: #f8fafc;
       --muted: #94a3b8;
       --card-border-glow: rgba(0, 174, 66, 0.15);
+      --danger: #ef4444;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
@@ -314,21 +315,37 @@
       background: linear-gradient(135deg, #00ae42, #009137);
       color: white;
       border: none;
-      padding: 0 1.4rem;
+      padding: 0 1.2rem;
       border-radius: 10px;
       font-weight: 700;
       font-size: 0.95rem;
       cursor: pointer;
       transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      white-space: nowrap;
     }
 
     .btn-add:hover {
       background: linear-gradient(135deg, #00c84c, #00ae42);
       box-shadow: 0 4px 15px var(--primary-glow);
-      transform: translateY(-1px);
+    }
+
+    .btn-deduct {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 0 1rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-deduct:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: #ef4444;
+      color: #ffffff;
     }
 
     .leaderboard {
@@ -388,7 +405,7 @@
     }
 
     .history-list {
-      max-height: 150px;
+      max-height: 180px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -420,13 +437,39 @@
       color: var(--muted);
     }
 
+    .history-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     .history-val {
       color: var(--accent);
       font-weight: 700;
       font-size: 0.92rem;
     }
 
-    /* Admin Panel */
+    .history-val.negative {
+      color: #f87171;
+    }
+
+    .btn-delete-log {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: 0.2s;
+    }
+
+    .btn-delete-log:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.15);
+    }
+
     .admin-panel {
       margin-top: 1.5rem;
       padding: 1rem;
@@ -467,7 +510,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvfQonm8IVTruDwD-dbk0ms3pnqMWG28E",
@@ -483,14 +526,13 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    // Designate admin email
     const ADMIN_EMAIL = "kavin.a.sriram@gmail.com";
     const TARGET_PRICE = 399.00;
     const trackerDocRef = doc(db, "printers", "bambu_a1_tracker");
     let currentUser = null;
     let initialLoad = true;
+    let currentLogs = [];
 
-    // Elements
     const authSection = document.getElementById("authSection");
     const appSection = document.getElementById("appSection");
     const loginBtn = document.getElementById("loginBtn");
@@ -507,6 +549,7 @@
     const splitStats = document.getElementById("splitStats");
     const amountInput = document.getElementById("amountInput");
     const addBtn = document.getElementById("addBtn");
+    const deductBtn = document.getElementById("deductBtn");
 
     loginBtn.onclick = () => signInWithPopup(auth, provider).catch(err => alert("Sign in failed: " + err.message));
     logoutBtn.onclick = () => signOut(auth);
@@ -519,7 +562,6 @@
         userNameDisplay.innerText = user.displayName || user.email.split("@")[0];
         userAvatarDisplay.src = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}&background=00ae42&color=fff`;
 
-        // Check if current user is admin
         const isAdmin = user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         adminBadge.style.display = isAdmin ? "inline-block" : "none";
         adminPanel.style.display = isAdmin ? "block" : "none";
@@ -532,11 +574,12 @@
     onSnapshot(trackerDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const total = data.totalSaved || 0;
-        const logs = data.logs || [];
+        const total = Number(data.totalSaved) || 0;
+        const rawLogs = Array.isArray(data.logs) ? data.logs : [];
+        currentLogs = rawLogs.filter(l => l && typeof l === 'object');
 
-        totalDisplay.innerText = `$${total.toFixed(2)}`;
-        const percent = Math.min((total / TARGET_PRICE) * 100, 100);
+        totalDisplay.innerText = `$${Math.max(0, total).toFixed(2)}`;
+        const percent = Math.min(Math.max(0, (total / TARGET_PRICE) * 100), 100);
         progressFill.style.width = `${percent}%`;
         progressPercent.innerText = `${percent.toFixed(1)}%`;
 
@@ -548,69 +591,118 @@
         }
         initialLoad = false;
 
+        // Individual Contribution Breakdown
         const partnerTotals = {};
-        logs.forEach(log => {
-          partnerTotals[log.name] = (partnerTotals[log.name] || 0) + log.amount;
+        currentLogs.forEach(log => {
+          const name = log.name || "Anonymous";
+          const amt = Number(log.amount) || 0;
+          partnerTotals[name] = (partnerTotals[name] || 0) + amt;
         });
 
-        splitStats.innerHTML = Object.entries(partnerTotals).map(([name, amount]) => `
-          <div class="split-row">
-            <span class="name">${escapeHtml(name)}</span>
-            <span class="amount">$${amount.toFixed(2)} (${total > 0 ? ((amount/total)*100).toFixed(0) : 0}%)</span>
-          </div>
-        `).join("") || `<span style="font-size: 0.8rem; color: var(--muted);">No savings recorded yet.</span>`;
+        const splitEntries = Object.entries(partnerTotals);
+        if (splitEntries.length > 0) {
+          splitStats.innerHTML = splitEntries.map(([name, amount]) => {
+            const share = total > 0 ? ((Math.max(0, amount) / total) * 100).toFixed(0) : 0;
+            return `
+              <div class="split-row">
+                <span class="name">${escapeHtml(name)}</span>
+                <span class="amount">$${amount.toFixed(2)} (${share}%)</span>
+              </div>
+            `;
+          }).join("");
+        } else {
+          splitStats.innerHTML = `<span style="font-size: 0.8rem; color: var(--muted);">No savings recorded yet.</span>`;
+        }
 
-        historyList.innerHTML = logs.slice(-8).reverse().map(l => {
-          const dateStr = new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        // Recent Activity with per-item Delete (Undo) buttons
+        historyList.innerHTML = currentLogs.slice(-10).reverse().map((l, revIndex) => {
+          const originalIndex = currentLogs.length - 1 - revIndex;
+          const name = l.name || "Anonymous";
+          const amt = Number(l.amount) || 0;
+          const isNegative = amt < 0;
+          const dateStr = l.date 
+            ? new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : "Recently";
+
           return `
             <div class="history-item">
               <div class="history-left">
-                <span class="history-name">${escapeHtml(l.name)}</span>
+                <span class="history-name">${escapeHtml(name)}</span>
                 <span class="history-time">${dateStr}</span>
               </div>
-              <span class="history-val">+$${l.amount.toFixed(2)}</span>
+              <div class="history-right">
+                <span class="history-val ${isNegative ? 'negative' : ''}">${isNegative ? '-$' : '+$'}${Math.abs(amt).toFixed(2)}</span>
+                <button class="btn-delete-log" title="Delete this entry" onclick="deleteEntry(${originalIndex})">✕</button>
+              </div>
             </div>
           `;
         }).join("");
       }
     });
 
-    async function deposit(amount) {
-      if (!amount || amount <= 0 || !currentUser) return;
+    // Handle adding or deducting money
+    async function updateBalance(delta) {
+      const parsedAmount = Math.abs(Number(delta));
+      if (isNaN(parsedAmount) || parsedAmount === 0 || !currentUser) return;
+
+      const finalAmount = delta > 0 ? parsedAmount : -parsedAmount;
+      const displayName = currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "Contributor");
+
       addBtn.disabled = true;
+      deductBtn.disabled = true;
 
       try {
+        const newLogs = [...currentLogs, {
+          name: displayName,
+          amount: finalAmount,
+          date: new Date().toISOString()
+        }];
+
+        const newTotal = Math.max(0, newLogs.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+
         await setDoc(trackerDocRef, {
-          totalSaved: increment(amount),
-          logs: arrayUnion({
-            name: currentUser.displayName || currentUser.email.split("@")[0],
-            amount: amount,
-            date: new Date().toISOString()
-          })
+          totalSaved: newTotal,
+          logs: newLogs
         }, { merge: true });
 
         amountInput.value = "";
       } catch (err) {
-        alert("Permission denied or connection issue: " + err.message);
+        alert("Action failed: " + err.message);
       } finally {
         addBtn.disabled = false;
+        deductBtn.disabled = false;
       }
     }
 
-    addBtn.onclick = () => deposit(parseFloat(amountInput.value));
-    window.quickAdd = (val) => deposit(val);
+    addBtn.onclick = () => updateBalance(parseFloat(amountInput.value));
+    deductBtn.onclick = () => updateBalance(-parseFloat(amountInput.value));
+    window.quickAdd = (val) => updateBalance(val);
+
+    // Delete a specific entry and auto-recalculate the balance
+    window.deleteEntry = async (index) => {
+      if (!confirm("Delete this entry and recalculate balance?")) return;
+      
+      const newLogs = [...currentLogs];
+      newLogs.splice(index, 1);
+      const newTotal = Math.max(0, newLogs.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+
+      await setDoc(trackerDocRef, {
+        totalSaved: newTotal,
+        logs: newLogs
+      }, { merge: true });
+    };
 
     // Admin Tools
     window.adminSetTotal = async () => {
-      const val = prompt("Enter new exact total balance ($):");
+      const val = prompt("Enter exact new total balance ($):");
       if (val !== null && !isNaN(parseFloat(val))) {
-        await setDoc(trackerDocRef, { totalSaved: parseFloat(val) }, { merge: true });
+        await setDoc(trackerDocRef, { totalSaved: Math.max(0, parseFloat(val)) }, { merge: true });
       }
     };
 
     window.adminClearLogs = async () => {
-      if (confirm("Reset recent activity logs?")) {
-        await setDoc(trackerDocRef, { logs: [] }, { merge: true });
+      if (confirm("Reset recent activity logs and reset total to 0?")) {
+        await setDoc(trackerDocRef, { totalSaved: 0, logs: [] }, { merge: true });
       }
     };
 
@@ -687,13 +779,14 @@
         <button class="btn-preset" onclick="quickAdd(50)">+$50</button>
       </div>
 
-      <!-- Custom Deposit -->
+      <!-- Custom Deposit / Deduct -->
       <div class="deposit-form">
         <div class="input-wrapper">
           <span class="currency-symbol">$</span>
-          <input type="number" id="amountInput" class="custom-input" placeholder="Custom amount" step="1" min="1" />
+          <input type="number" id="amountInput" class="custom-input" placeholder="Amount" step="1" min="1" />
         </div>
         <button class="btn-add" id="addBtn">Add</button>
+        <button class="btn-deduct" id="deductBtn">Deduct</button>
       </div>
 
       <!-- Individual Split Breakdown -->
@@ -713,7 +806,7 @@
         <div class="admin-panel-title">Admin Controls (kavin.a.sriram@gmail.com)</div>
         <div class="admin-actions">
           <button class="btn-admin-action" onclick="adminSetTotal()">Manually Set Total</button>
-          <button class="btn-admin-action" onclick="adminClearLogs()">Clear History Logs</button>
+          <button class="btn-admin-action" onclick="adminClearLogs()">Clear All Logs & Reset</button>
         </div>
       </div>
     </div>
