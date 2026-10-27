@@ -3,26 +3,436 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bambu Lab A1 Savings Tracker</title>
+  <title>Bambu Lab A1 Savings Fund</title>
+  
+  <!-- Canvas-Confetti for celebratory goal completion -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f8; display: flex; justify-content: center; padding: 2rem; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); width: 100%; max-width: 480px; padding: 2rem; text-align: center; }
-    .progress-container { background: #e2e8f0; border-radius: 999px; height: 24px; overflow: hidden; margin: 1.5rem 0; }
-    .progress-bar { background: #00ae42; height: 100%; width: 0%; transition: width 0.4s ease; }
-    .inputs { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; }
-    input { padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; width: 140px; }
-    button { background: #00ae42; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; }
-    button:hover { background: #008f36; }
-    .history { text-align: left; max-height: 180px; overflow-y: auto; font-size: 0.9rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
+    :root {
+      --bg: #0b0f14;
+      --card-bg: rgba(18, 26, 36, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
+      --primary: #00ae42;
+      --primary-glow: rgba(0, 174, 66, 0.4);
+      --accent: #00e859;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --card-border-glow: rgba(0, 174, 66, 0.15);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 174, 66, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(0, 0, 0, 0.6) 0px, transparent 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.2rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px var(--card-border-glow);
+      position: relative;
+    }
+
+    .badge-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .printer-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 174, 66, 0.15);
+      border: 1px solid rgba(0, 174, 66, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .live-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      background-color: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.2rem;
+    }
+
+    .subtitle {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 1.8rem;
+    }
+
+    /* Auth View */
+    #authSection {
+      text-align: center;
+      padding: 2.5rem 1rem;
+    }
+
+    .auth-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn-google {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #ffffff;
+      color: #1e293b;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.8rem 1.6rem;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+      margin-top: 1.2rem;
+      width: 100%;
+    }
+
+    .btn-google:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Active Tracker View */
+    .user-profile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1.6rem;
+      font-size: 0.85rem;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid var(--primary);
+    }
+
+    .btn-signout {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-signout:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+
+    .stat-hero {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .total-amount {
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      background: linear-gradient(180deg, #ffffff 30%, #a7f3d0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+    }
+
+    .target-desc {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.35rem;
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Progress Bar */
+    .progress-box {
+      margin-bottom: 2rem;
+    }
+
+    .progress-track {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      height: 20px;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+      padding: 3px;
+    }
+
+    .progress-fill {
+      background: linear-gradient(90deg, #00ae42, #00e859);
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      box-shadow: 0 0 16px var(--primary-glow);
+      transition: width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .milestone-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    /* Quick Preset Buttons */
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-preset:hover {
+      background: rgba(0, 174, 66, 0.15);
+      border-color: var(--primary);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    /* Add Form */
+    .deposit-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.8rem;
+    }
+
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    .currency-symbol {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .custom-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem 0.75rem 2rem;
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-weight: 600;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    .custom-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 232, 89, 0.2);
+    }
+
+    .btn-add {
+      background: linear-gradient(135deg, #00ae42, #009137);
+      color: white;
+      border: none;
+      padding: 0 1.4rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-add:hover {
+      background: linear-gradient(135deg, #00c84c, #00ae42);
+      box-shadow: 0 4px 15px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    /* Partner Split Breakdown */
+    .leaderboard {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .leaderboard-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 0.8rem;
+    }
+
+    .split-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .split-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .split-row .name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .split-row .amount {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* Activity Feed */
+    .history-card {
+      border-top: 1px solid var(--border);
+      padding-top: 1.2rem;
+    }
+
+    .history-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 0.8rem;
+    }
+
+    .history-list {
+      max-height: 150px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 6px;
+    }
+
+    .history-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-name {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .history-time {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .history-val {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    /* Custom Scrollbar */
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
   </style>
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase Modular SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Your actual Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyDvfQonm8IVTruDwD-dbk0ms3pnqMWG28E",
       authDomain: "a1-savings-tracker.firebaseapp.com",
@@ -37,19 +447,28 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    const TARGET_PRICE = 399.00; // Target price for Bambu Lab A1
+    const TARGET_PRICE = 399.00;
     const trackerDocRef = doc(db, "printers", "bambu_a1_tracker");
-
     let currentUser = null;
+    let initialLoad = true;
 
-    // UI Elements
+    // Elements
     const authSection = document.getElementById("authSection");
     const appSection = document.getElementById("appSection");
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
-    const userLabel = document.getElementById("userLabel");
+    const userNameDisplay = document.getElementById("userNameDisplay");
+    const userAvatarDisplay = document.getElementById("userAvatarDisplay");
+    const totalDisplay = document.getElementById("totalDisplay");
+    const progressFill = document.getElementById("progressFill");
+    const progressPercent = document.getElementById("progressPercent");
+    const remainingText = document.getElementById("remainingText");
+    const historyList = document.getElementById("historyList");
+    const splitStats = document.getElementById("splitStats");
+    const amountInput = document.getElementById("amountInput");
+    const addBtn = document.getElementById("addBtn");
 
-    loginBtn.onclick = () => signInWithPopup(auth, provider);
+    loginBtn.onclick = () => signInWithPopup(auth, provider).catch(err => alert("Sign in failed: " + err.message));
     logoutBtn.onclick = () => signOut(auth);
 
     onAuthStateChanged(auth, (user) => {
@@ -57,79 +476,187 @@
       if (user) {
         authSection.style.display = "none";
         appSection.style.display = "block";
-        userLabel.innerText = `Signed in as: ${user.displayName}`;
+        userNameDisplay.innerText = user.displayName || user.email.split("@")[0];
+        userAvatarDisplay.src = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}&background=00ae42&color=fff`;
       } else {
         authSection.style.display = "block";
         appSection.style.display = "none";
       }
     });
 
-    // Realtime Firestore Listener
+    // Real-time synchronization
     onSnapshot(trackerDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const total = data.totalSaved || 0;
-        document.getElementById("totalSaved").innerText = `$${total.toFixed(2)}`;
-        const percent = Math.min((total / TARGET_PRICE) * 100, 100);
-        document.getElementById("progressBar").style.width = `${percent}%`;
-        document.getElementById("percentLabel").innerText = `${percent.toFixed(1)}% of $${TARGET_PRICE}`;
+        const logs = data.logs || [];
 
-        const logList = document.getElementById("logList");
-        logList.innerHTML = (data.logs || []).slice(-5).reverse().map(l => 
-          `<div><b>${l.name}</b> added $${l.amount.toFixed(2)} on ${new Date(l.date).toLocaleDateString()}</div>`
-        ).join("");
+        // Update Total & Target
+        totalDisplay.innerText = `$${total.toFixed(2)}`;
+        const percent = Math.min((total / TARGET_PRICE) * 100, 100);
+        progressFill.style.width = `${percent}%`;
+        progressPercent.innerText = `${percent.toFixed(1)}%`;
+
+        const diff = TARGET_PRICE - total;
+        remainingText.innerText = diff > 0 ? `$${diff.toFixed(2)} remaining` : "Goal Achieved!";
+
+        // Confetti burst on reaching goal
+        if (total >= TARGET_PRICE && !initialLoad && window.confetti) {
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        }
+        initialLoad = false;
+
+        // Render Individual Savings Breakdown
+        const partnerTotals = {};
+        logs.forEach(log => {
+          partnerTotals[log.name] = (partnerTotals[log.name] || 0) + log.amount;
+        });
+
+        splitStats.innerHTML = Object.entries(partnerTotals).map(([name, amount]) => `
+          <div class="split-row">
+            <span class="name">👤 ${escapeHtml(name)}</span>
+            <span class="amount">$${amount.toFixed(2)} (${total > 0 ? ((amount/total)*100).toFixed(0) : 0}%)</span>
+          </div>
+        `).join("") || `<span style="font-size: 0.8rem; color: var(--muted);">No savings recorded yet.</span>`;
+
+        // Render Recent Activity Logs
+        historyList.innerHTML = logs.slice(-8).reverse().map(l => {
+          const dateStr = new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          return `
+            <div class="history-item">
+              <div class="history-left">
+                <span class="history-name">${escapeHtml(l.name)}</span>
+                <span class="history-time">${dateStr}</span>
+              </div>
+              <span class="history-val">+$${l.amount.toFixed(2)}</span>
+            </div>
+          `;
+        }).join("");
       }
     });
 
-    // Add Money
-    document.getElementById("addBtn").onclick = async () => {
-      const input = document.getElementById("amountInput");
-      const amount = parseFloat(input.value);
-      if (!amount || amount <= 0) return;
+    // Deposit Logic
+    async function deposit(amount) {
+      if (!amount || amount <= 0 || !currentUser) return;
+      addBtn.disabled = true;
 
-      await setDoc(trackerDocRef, {
-        totalSaved: increment(amount),
-        logs: arrayUnion({
-          name: currentUser.displayName,
-          amount: amount,
-          date: new Date().toISOString()
-        })
-      }, { merge: true });
+      try {
+        await setDoc(trackerDocRef, {
+          totalSaved: increment(amount),
+          logs: arrayUnion({
+            name: currentUser.displayName || currentUser.email.split("@")[0],
+            amount: amount,
+            date: new Date().toISOString()
+          })
+        }, { merge: true });
 
-      input.value = "";
-    };
+        amountInput.value = "";
+      } catch (err) {
+        alert("Permission denied or connection issue: " + err.message);
+      } finally {
+        addBtn.disabled = false;
+      }
+    }
+
+    addBtn.onclick = () => deposit(parseFloat(amountInput.value));
+
+    // Preset buttons
+    window.quickAdd = (val) => deposit(val);
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag] || tag));
+    }
   </script>
 </head>
 <body>
-  <div class="card">
-    <h2>Bambu Lab A1 Fund</h2>
 
-    <div id="authSection">
-      <p>Sign in with your Google account to contribute:</p>
-      <button id="loginBtn">Sign in with Google</button>
+  <div class="container">
+    <div class="badge-bar">
+      <div class="printer-tag">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Bambu Lab A1
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); font-weight: 600;">
+        <span class="live-dot"></span> Live Sync
+      </div>
     </div>
 
+    <h1>Printer Savings Goal</h1>
+    <p class="subtitle">Shared fund tracker for brother &amp; sister</p>
+
+    <!-- Sign In View -->
+    <div id="authSection">
+      <div class="auth-icon">🖨️</div>
+      <h3 style="margin-bottom: 0.5rem; font-weight: 700;">Welcome to the Fund Tracker</h3>
+      <p style="font-size: 0.88rem; color: var(--muted);">Sign in with your Google account to log and view shared contributions.</p>
+      <button class="btn-google" id="loginBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+
+    <!-- Active Tracker View -->
     <div id="appSection" style="display:none;">
-      <p id="userLabel" style="font-size: 0.85rem; color: #64748b;"></p>
-      <h1 id="totalSaved">$0.00</h1>
-      <p id="percentLabel" style="font-weight: 500; color: #334155;">0% of $399.00</p>
-      
-      <div class="progress-container">
-        <div id="progressBar" class="progress-bar"></div>
+      <div class="user-profile">
+        <div class="user-info">
+          <img id="userAvatarDisplay" class="user-avatar" alt="Avatar"/>
+          <span id="userNameDisplay" style="font-weight: 600;"></span>
+        </div>
+        <button class="btn-signout" id="logoutBtn">Sign Out</button>
       </div>
 
-      <div class="inputs">
-        <input type="number" id="amountInput" placeholder="Amount ($)" step="0.50" min="0" />
-        <button id="addBtn">Add to Savings</button>
+      <div class="stat-hero">
+        <div class="total-amount" id="totalDisplay">$0.00</div>
+        <div class="target-desc">
+          <span>Target: <strong>$399.00</strong></span>
+          <span>•</span>
+          <span id="remainingText">$399.00 remaining</span>
+        </div>
       </div>
 
-      <div class="history">
-        <strong>Recent Contributions:</strong>
-        <div id="logList"></div>
+      <div class="progress-box">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="milestone-labels">
+          <span>$0 (0%)</span>
+          <span id="progressPercent" style="color: var(--accent);">0.0%</span>
+          <span>$399 (100%)</span>
+        </div>
       </div>
-      <br/>
-      <button id="logoutBtn" style="background:#ef4444; font-size: 0.8rem; padding: 0.3rem 0.8rem;">Sign Out</button>
+
+      <!-- Quick Add Presets -->
+      <div class="presets">
+        <button class="btn-preset" onclick="quickAdd(5)">+$5</button>
+        <button class="btn-preset" onclick="quickAdd(10)">+$10</button>
+        <button class="btn-preset" onclick="quickAdd(20)">+$20</button>
+        <button class="btn-preset" onclick="quickAdd(50)">+$50</button>
+      </div>
+
+      <!-- Deposit Input -->
+      <div class="deposit-form">
+        <div class="input-wrapper">
+          <span class="currency-symbol">$</span>
+          <input type="number" id="amountInput" class="custom-input" placeholder="Custom amount" step="1" min="1" />
+        </div>
+        <button class="btn-add" id="addBtn">Add</button>
+      </div>
+
+      <!-- Individual Split Breakdown -->
+      <div class="leaderboard">
+        <div class="leaderboard-title">Contribution Split</div>
+        <div id="splitStats" class="split-grid"></div>
+      </div>
+
+      <!-- Live Activity Feed -->
+      <div class="history-card">
+        <div class="history-title">Recent Activity</div>
+        <div id="historyList" class="history-list"></div>
+      </div>
     </div>
   </div>
+
 </body>
 </html>
