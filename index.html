@@ -20,16 +20,16 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, updateDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 1. Replace with your Firebase project config keys
+    // Your actual Firebase configuration
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyDvfQonm8IVTruDwD-dbk0ms3pnqMWG28E",
+      authDomain: "a1-savings-tracker.firebaseapp.com",
+      projectId: "a1-savings-tracker",
+      storageBucket: "a1-savings-tracker.firebasestorage.app",
+      messagingSenderId: "157604988608",
+      appId: "1:157604988608:web:069538e4dfbfa3c9010f25"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -37,12 +37,12 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    const TARGET_PRICE = 399.00; // Target for Bambu Lab A1
+    const TARGET_PRICE = 399.00; // Target price for Bambu Lab A1
     const trackerDocRef = doc(db, "printers", "bambu_a1_tracker");
 
     let currentUser = null;
 
-    // Auth Elements
+    // UI Elements
     const authSection = document.getElementById("authSection");
     const appSection = document.getElementById("appSection");
     const loginBtn = document.getElementById("loginBtn");
@@ -64,7 +64,7 @@
       }
     });
 
-    // Realtime Listener (Updates on both screens simultaneously)
+    // Realtime Firestore Listener
     onSnapshot(trackerDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -81,20 +81,21 @@
       }
     });
 
-    // Add Money Action
+    // Add Money
     document.getElementById("addBtn").onclick = async () => {
       const input = document.getElementById("amountInput");
       const amount = parseFloat(input.value);
       if (!amount || amount <= 0) return;
 
-      await updateDoc(trackerDocRef, {
+      await setDoc(trackerDocRef, {
         totalSaved: increment(amount),
         logs: arrayUnion({
           name: currentUser.displayName,
           amount: amount,
           date: new Date().toISOString()
         })
-      });
+      }, { merge: true });
+
       input.value = "";
     };
   </script>
